@@ -1,0 +1,27 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Match this to the version in your plugins block (8.3.2 is safer for now)
+        classpath 'com.android.tools.build:gradle:8.9.1'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+// At the very bottom of your android/build.gradle
+rootProject.layout.buildDirectory.value(rootProject.layout.projectDirectory.dir("../build"))
+
+subprojects {
+    project.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir(project.name).get())
+}
+
+subprojects {
+    project.evaluationDependsOn(":app")
+}
