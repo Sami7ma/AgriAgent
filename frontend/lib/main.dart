@@ -70,20 +70,11 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   bool _isLoading = false;
   Position? _currentPosition;
 
-  Future<Map<String, dynamic>?>? _farmCardFuture;
-
   @override
   void initState() {
     super.initState();
-    _farmCardFuture = _fetchCard();
     _determinePosition();
   }
-  
-  // Update _determinePosition to call:
-  // setState(() { _farmCardFuture = _fetchCard(); }); 
-  
-  // ... inside _determinePosition replaced block above ...
-
 
   Future<void> _determinePosition() async {
     bool serviceEnabled;
@@ -109,23 +100,9 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         _currentPosition = position;
       });
       _showSuccessSnackBar("Location found: ${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}");
-      
-      // Force refresh of farm card with new location
-      await _refreshFarmCard();
     } catch (e) {
       print("Error getting location: $e");
       _showErrorSnackBar("Could not get GPS location. Ensure Mobile Data/WiFi is ON.");
-    }
-  }
-
-  // New method to fetch and update card state manually
-  Future<void> _refreshFarmCard() async {
-    final data = await _fetchCard();
-    if (data != null && mounted) {
-      setState(() {
-        // We need to store this data or trigger the FutureBuilder to reload.
-        // Better yet, let's just make `_farmCardFuture` a state variable.
-      });
     }
   }
   
@@ -230,43 +207,60 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildFarmCardSection(),
-              const SizedBox(height: 24),
-              _buildImageSection(),
-              const SizedBox(height: 24),
-              _buildActionButtons(),
-              const SizedBox(height: 24),
-              if (_isLoading) 
-                const Center(child: CircularProgressIndicator())
-              else if (_errorMessage != null)
-                _buildErrorCard()
-              else if (_diagnosisData != null)
-                Column(
-                  children: [
-                    _buildDiagnosisResult(),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _openChat,
-                      icon: const Icon(Icons.chat),
-                      label: const Text("Ask AgriAgent about this"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade700,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                    )
-                  ],
-                ),
-            ],
+        child: RefreshIndicator(
+          onRefresh: _onRefresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildFarmCardSection(),
+                const SizedBox(height: 24),
+                _buildImageSection(),
+                const SizedBox(height: 24),
+                _buildActionButtons(),
+                const SizedBox(height: 24),
+                if (_isLoading) 
+                  const Center(child: CircularProgressIndicator())
+                else if (_errorMessage != null)
+                  _buildErrorCard()
+                else if (_diagnosisData != null)
+                  Column(
+                    children: [
+                      _buildDiagnosisResult(),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _openChat,
+                        icon: const Icon(Icons.chat),
+                        label: const Text("Ask AgriAgent about this"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                      )
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+  
+  Future<void> _onRefresh() async {
+    // Reset State
+    setState(() {
+      _mediaFile = null;
+      _diagnosisData = null;
+      _errorMessage = null; 
+      // Keep loading false, _determinePosition handles its own UI updates mostly or is silent
+    });
+    
+    // Re-fetch Location & Card
+    await _determinePosition();
   }
 
   Widget _buildFarmCardSection() {
@@ -286,17 +280,13 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                     const Text("Daily Application", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.my_location, size: 20),
-                  onPressed: _determinePosition,
-                  tooltip: "Accurate Location",
-                ),
+                // Location button removed in favor of Pull-to-Refresh
               ],
             ),
             const Divider(height: 20),
             // Re-fetch only when we have location or just once
             FutureBuilder(
-              future: _farmCardFuture,
+              future: _fetchCard(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting && _currentPosition == null) {
                   return const Padding(
