@@ -162,12 +162,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openChat,
-        label: const Text("Ask Agent"),
-        icon: const Icon(Icons.chat),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
+      floatingActionButton: SizedBox(
+        height: 65, // Taller button
+        width: 140, // Wider button
+        child: FloatingActionButton.extended(
+          onPressed: _openChat,
+          label: const Text("Ask Agent", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          icon: const Icon(Icons.chat, size: 28),
+          backgroundColor: const Color(0xFF2E7D32), // Darker Forest Green
+          foregroundColor: Colors.white,
+        ),
       ),
       body: SafeArea(
         child: RefreshIndicator(
