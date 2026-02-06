@@ -78,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } catch (e) {
       setState(() {
-        _cardError = "Failed to load daily insights.";
+        _cardError = "Network Error: ${e.toString().replaceAll('Exception: ', '').substring(0, 30)}..."; // truncate for UI
         _isCardLoading = false;
       });
     }
@@ -161,6 +161,13 @@ class _HomeScreenState extends State<HomeScreen> {
             Text('AgriAgent'),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openChat,
+        label: const Text("Ask Agent"),
+        icon: const Icon(Icons.chat),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
       ),
       body: SafeArea(
         child: RefreshIndicator(

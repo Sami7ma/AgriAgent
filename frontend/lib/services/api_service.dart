@@ -45,7 +45,7 @@ class ApiService {
       return FarmCard.fromJson(response.data);
     } catch (e) {
       print("Error fetching daily card: $e");
-      return null;
+      throw Exception("Failed to load: $e");
     }
   }
 
