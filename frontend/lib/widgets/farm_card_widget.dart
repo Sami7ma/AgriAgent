@@ -47,6 +47,20 @@ class FarmCardWidget extends StatelessWidget {
               if (isLoading) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
             ],
           ),
+          // NEW: Location row
+          if (data?.location != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.location_on, color: Colors.white70, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  data!.location,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12)
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 20),
           
           if (error != null)

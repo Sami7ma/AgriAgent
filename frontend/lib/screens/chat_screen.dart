@@ -6,19 +6,22 @@ import '../models/diagnosis.dart';
 import '../models/chat_message.dart';
 import '../models/farm_card.dart';
 import '../services/api_service.dart';
+import '../services/chat_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final Diagnosis? initialDiagnosis;
   final FarmCard? locationContext;
   final double? latitude;
   final double? longitude;
+  final String? sessionId; // Added for loading specific session
 
   const ChatScreen({
     super.key, 
     this.initialDiagnosis, 
     this.locationContext,
     this.latitude,
-    this.longitude
+    this.longitude,
+    this.sessionId
   });
 
   @override
@@ -29,12 +32,61 @@ class _ChatScreenState extends State<ChatScreen> {
   // ... (existing state)
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final ApiService _apiService = ApiService();
+  final ChatService _chatService = ChatService();
+  final ApiService _apiService = ApiService(); // Restored
   
-  List<ChatMessage> _messages = [];
-  bool _isSending = false;
+  List<ChatMessage> _messages = []; // Restored
+  bool _isSending = false; // Restored
+  
+  String _sessionId = ""; // Manage Session ID locally
 
-  // ... (initNewChat same)
+  @override
+  void initState() {
+    super.initState();
+    // Only generate NEW if widget.sessionId is null
+    if (widget.sessionId == null) {
+       _sessionId = widget.initialDiagnosis != null 
+        ? "diag_${DateTime.now().millisecondsSinceEpoch}" 
+        : "chat_${DateTime.now().millisecondsSinceEpoch}";
+    }
+    
+    _initChat();
+  }
+  
+  Future<void> _initChat() async {
+     if (widget.sessionId != null) {
+         _sessionId = widget.sessionId!;
+         List<ChatMessage> loaded = await _chatService.loadSession(_sessionId);
+         if (mounted) {
+             setState(() {
+                 _messages = loaded;
+             });
+             // If empty/new session but ID passed (edge case), add greeting ?
+             if (_messages.isEmpty) {
+                 _addGreeting();
+             }
+         }
+     } else {
+         // New Chat
+         _addGreeting();
+         _saveChat();
+     }
+  }
+
+  void _addGreeting() {
+     setState(() {
+        _messages = [
+            ChatMessage(role: "bot", text: "Hello! I'm AgriAgent. How can I help you today?")
+        ];
+        if (widget.initialDiagnosis != null) {
+           _messages.add(ChatMessage(role: "system", text: "Context: ${widget.initialDiagnosis!.crop} - ${widget.initialDiagnosis!.issue}"));
+        }
+     });
+  }
+
+  Future<void> _saveChat() async {
+      await _chatService.saveSession(_sessionId, _messages);
+  }
 
   // Messaging with History Passing
   Future<void> _sendMessage() async {
@@ -47,6 +99,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _controller.clear();
     });
     _scrollToBottom();
+    _saveChat(); // Save user message
 
     try {
       String contextStr = "";
@@ -69,6 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.add(ChatMessage(role: "bot", text: responseText));
         });
         _scrollToBottom();
+        _saveChat(); // Save bot message
       }
     } catch (e) {
       if (mounted) {

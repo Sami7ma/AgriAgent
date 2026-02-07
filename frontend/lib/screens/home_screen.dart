@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/diagnosis.dart';
 import '../models/farm_card.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
 import '../services/weather_service.dart';
+import '../services/chat_service.dart'; // Import Service
 import '../widgets/farm_card_widget.dart';
 import '../widgets/image_display_widget.dart';
 import '../widgets/diagnosis_result_widget.dart';
@@ -28,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
   final LocationService _locationService = LocationService();
   final WeatherService _weatherService = WeatherService();
+  final ChatService _chatService = ChatService(); // Added missing service
   final ImagePicker _picker = ImagePicker();
 
   // State
@@ -44,7 +47,11 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _cardError;
 
   // Chat History Management
-  List<String> _sessions = [];
+  List<Map<String, String>> _chatSessions = [];
+  
+  // Market Data Selection
+  String _selectedCrop = "Maize";
+  final List<String> _crops = ["Maize", "Wheat", "Coffee", "Teff"];
 
   @override
   void initState() {
@@ -54,10 +61,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   Future<void> _loadSessionsList() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _sessions = prefs.getStringList('agri_chat_sessions_index') ?? [];
-    });
+     // Verify persistence logic from ChatService
+     List<Map<String, String>> sessions = await _chatService.getSessions();
+     setState(() {
+         _chatSessions = sessions;
+     });
   }
 
   Future<void> _initialLoad() async {
@@ -164,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _openChat(Diagnosis? diag) {
+  void _openChat(Diagnosis? diag, {String? sessionId}) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -173,6 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
             locationContext: _farmCard, 
             latitude: _currentPosition?.latitude,
             longitude: _currentPosition?.longitude,
+            sessionId: sessionId,
         ),
       ),
     ).then((_) => _loadSessionsList()); 
@@ -202,51 +211,40 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
-      endDrawer: Drawer( 
-          backgroundColor: const Color(0xFFF1F8E9),
-          child: Column(
-            children: [
-               DrawerHeader(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF43A047)]),
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                        const Icon(Icons.history, color: Colors.white, size: 40),
-                        const SizedBox(height: 10),
-                        const Text("Chat History", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 10),
-                        OutlinedButton.icon(
-                        onPressed: () {
-                            Navigator.pop(context);
-                            _openChat(null); 
+      endDrawer: Drawer(
+        backgroundColor: const Color(0xFFF1F8E9),
+        child: Column(
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Color(0xFF2E7D32)),
+              child: const Center(child: Text("Chat History", style: TextStyle(color: Colors.white, fontSize: 24))),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _chatSessions.length,
+                itemBuilder: (context, index) {
+                   final session = _chatSessions[index];
+                   return ListTile(
+                     leading: const Icon(Icons.history),
+                     title: Text(session['title'] ?? 'Chat ${index + 1}'),
+                     subtitle: Text(session['date']?.substring(0, 10) ?? '', style: const TextStyle(fontSize: 10)),
+                     onTap: () {
+                        Navigator.pop(context); // Close Drawer
+                        _openChat(null, sessionId: session['id']); // Load existing
+                     },
+                     trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.grey, size: 20),
+                        onPressed: () async {
+                            await _chatService.deleteSession(session['id']!);
+                            _loadSessionsList();
                         },
-                        icon: const Icon(Icons.add, color: Colors.white),
-                        label: const Text("New Chat", style: TextStyle(color: Colors.white)),
-                        style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white)),
-                        )
-                    ],
-                  ),
-                ),
+                     ),
+                   );
+                },
               ),
-              Expanded(
-                child: ListView.builder(
-                    itemCount: _sessions.length,
-                    itemBuilder: (context, index) {
-                        return ListTile(
-                            leading: const Icon(Icons.chat_bubble_outline),
-                            title: Text("Session ${index + 1}"),
-                            trailing: const Icon(Icons.chevron_right),
-                        );
-                    },
-                ),
-              )
-            ],
-          ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openChat(_diagnosis),
@@ -269,10 +267,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   "Hello, Farmer! 👋", 
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.grey[900])
                 ),
-                Text(
-                  _currentPosition != null ? "Lat/Lon: ${_currentPosition!.latitude.toStringAsFixed(2)}, ${_currentPosition!.longitude.toStringAsFixed(2)}" : "Locating...",
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600])
-                ),
                 const SizedBox(height: 20),
 
                 // 2. MAIN INSIGHT CARD (Weather + Action)
@@ -286,13 +280,40 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 20),
 
                 // 3. MARKET ANALYTICS
-                const Text("Market Trends 📈", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                const MarketChartWidget(
-                    cropName: "Maize",
-                    months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-                    prices: [450, 470, 460, 480, 500, 520], // Mock Data for now, could be real
-                ),
+                const Text(
+            "Market Trends 📈",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        // Crop Selector
+        SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+                children: _crops.map((crop) {
+                    return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                            label: Text(crop),
+                            selected: _selectedCrop == crop,
+                            selectedColor: const Color(0xFF2E7D32),
+                            labelStyle: TextStyle(color: _selectedCrop == crop ? Colors.white : Colors.black),
+                            onSelected: (bool selected) {
+                                if (selected) {
+                                    setState(() {
+                                        _selectedCrop = crop;
+                                    });
+                                }
+                            },
+                        ),
+                    );
+                }).toList(),
+            ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+            height: 250,
+            child: MarketChartWidget(cropName: _selectedCrop),
+        ),
                 const SizedBox(height: 24),
 
                 // 4. DIAGNOSIS AREA (Action Buttons + Content)
