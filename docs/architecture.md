@@ -1,37 +1,194 @@
-# AgriAgent Architecture
+# AgriAgent Architecture v2.0
 
-## Logic Flow
-Farmer -> Flutter App -> FastAPI -> Antigravity Agent -> Gemini 3 Flash -> Tools
+> **Last Updated**: 2026-02-07 | **Status**: Phase 4 Complete
 
-## Components
+## System Overview
 
-### 1. Flutter App (Frontend)
-- **Role**: Capture input, display output.
-- **Key Libraries**: 
-    - `camera` (Input)
-    - `fl_chart` (Market Analytics)
-    - `geolocator` (Location Context)
-    - `http` (Weather API)
+```mermaid
+flowchart TB
+    subgraph Frontend["📱 Flutter App"]
+        UI[Home Screen]
+        Chat[Chat Screen]
+        Services["Services Layer"]
+    end
+    
+    subgraph Backend["⚡ FastAPI Server"]
+        API[API Router]
+        Agent[Antigravity Agent]
+        BServices[Backend Services]
+    end
+    
+    subgraph External["🌐 External APIs"]
+        Gemini[Gemini 3 Flash]
+        Weather[Open-Meteo]
+        Geo[Nominatim OSM]
+    end
+    
+    UI --> Services
+    Chat --> Services
+    Services -->|HTTP| API
+    API --> Agent
+    API --> BServices
+    Agent --> Gemini
+    BServices --> Weather
+    BServices --> Geo
+```
 
-### 2. FastAPI (Backend)
-- **Role**: Orchestration, Auth, API Gateway.
-- **Key Modules**: `fastapi`, `uvicorn`.
-- **Connectivity**: Configured for `0.0.0.0` access (Local Network).
+---
 
-### 3. Antigravity Agent (Reasoning)
-- **Role**: Decision making.
-- **Loop**: Observe -> Reason -> Act -> Repeat.
-- **Context**: Now receives `lat`, `lon`, and `chat_history`.
+## Component Details
 
-### 4. Gemini 3 Flash (Model)
-- **Role**: Visual analysis, Speech-to-Text, Common sense reasoning.
+### 1. Frontend (Flutter/Dart)
 
-### 5. External Services (Real Data)
-- **Weather**: Open-Meteo API (Latitude/Longitude based).
-- **Market**: Mock Data (Maize) -> Planned: Real Local Prices.
-- **Geocoding**: OpenStreetMap (Nominatim) for Reverse Geocoding.
+| File | Purpose | Dependencies |
+|------|---------|--------------|
+| `home_screen.dart` | Main dashboard (Weather, Markets, Diagnosis) | All services |
+| `chat_screen.dart` | AI conversation interface | api_service, chat_service |
+| `api_service.dart` | HTTP client to backend | dio |
+| `chat_service.dart` | Local persistence (SharedPreferences) | shared_preferences |
+| `location_service.dart` | GPS coordinates | geolocator |
+| `weather_service.dart` | Open-Meteo API client | http |
 
-## Data Flow
-1. **Diagnosis**: Video -> Backend -> Gemini Vision -> Analysis JSON -> Frontend Card.
-2. **Advice**: Voice -> Backend -> STT -> Agent -> Tools -> TTS -> Frontend Audio.
-3. **Daily Insights**: Location (GPS) -> Backend -> OpenMeteo/Market -> FarmCard -> Frontend.
+**Key Libraries**:
+- `fl_chart` - Market price graphs
+- `geolocator` - Device GPS
+- `shared_preferences` - Local storage
+- `flutter_markdown` - Chat formatting
+
+---
+
+### 2. Backend (FastAPI/Python)
+
+| File | Purpose | External Calls |
+|------|---------|----------------|
+| `api.py` | REST endpoints | None |
+| `antigravity/core.py` | Agent reasoning loop | Gemini API |
+| `antigravity/tools.py` | Tool definitions | Various |
+| `services/farm_card.py` | Daily insights generator | Nominatim, Open-Meteo |
+| `services/vision.py` | Crop disease analysis | Gemini Vision |
+| `services/voice.py` | Speech processing | Gemini Audio |
+
+**Key Endpoints**:
+```
+POST /api/v1/diagnose     → Vision analysis
+POST /api/v1/agent/query  → AI chat
+GET  /api/v1/daily-card   → Farm insights
+```
+
+---
+
+### 3. External Services
+
+| Service | Purpose | Auth |
+|---------|---------|------|
+| Gemini 3 Flash | Vision, NLP, Reasoning | API Key |
+| Open-Meteo | Weather forecasts | None (Free) |
+| Nominatim (OSM) | Reverse geocoding | None (Rate Limited) |
+
+---
+
+## Data Flow Diagrams
+
+### Chat Flow
+```mermaid
+sequenceDiagram
+    participant User
+    participant ChatScreen
+    participant ChatService
+    participant ApiService
+    participant Backend
+    participant Gemini
+    
+    User->>ChatScreen: Type message
+    ChatScreen->>ChatService: Save to local
+    ChatScreen->>ApiService: POST /agent/query
+    ApiService->>Backend: {query, history, location}
+    Backend->>Gemini: Prompt + Context
+    Gemini-->>Backend: Response
+    Backend-->>ApiService: {response_text}
+    ApiService-->>ChatScreen: Display
+    ChatScreen->>ChatService: Save response
+```
+
+### Diagnosis Flow
+```mermaid
+sequenceDiagram
+    participant User
+    participant HomeScreen
+    participant Camera
+    participant ApiService
+    participant VisionService
+    participant Gemini
+    
+    User->>HomeScreen: Take Photo
+    HomeScreen->>Camera: Capture
+    Camera-->>HomeScreen: Image File
+    HomeScreen->>ApiService: POST /diagnose (multipart)
+    ApiService->>VisionService: Analyze
+    VisionService->>Gemini: Vision API
+    Gemini-->>VisionService: {crop, issue, severity}
+    VisionService-->>ApiService: Diagnosis JSON
+    ApiService-->>HomeScreen: Display Card
+```
+
+---
+
+## Current Implementation Status
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Crop Diagnosis (Vision) | ✅ Complete | Gemini Vision API |
+| AI Chat | ✅ Complete | Context-aware, history-enabled |
+| Weather Integration | ✅ Complete | Open-Meteo API |
+| Location Services | ✅ Complete | GPS + Reverse Geocoding |
+| Chat Persistence | ✅ Complete | SharedPreferences |
+| Market Charts | ✅ Complete | Mock data, multi-crop selector |
+| Voice Input/Output | 🔄 Partial | Backend ready, frontend pending |
+| Real Market Data | ⏳ Planned | Needs API source |
+| Real News Feed | ⏳ Planned | Needs RSS/scraping |
+
+---
+
+## Security Considerations
+
+| Area | Current State | Risk Level |
+|------|---------------|------------|
+| API Keys | Hardcoded in `.env` | 🟡 Medium |
+| CORS | Allow all origins | 🔴 High (Dev Mode) |
+| Input Validation | Basic Pydantic | 🟡 Medium |
+| Rate Limiting | None | 🟡 Medium |
+| HTTPS | Not enforced | 🔴 High (Prod) |
+
+---
+
+## File Structure
+```
+AgriAgent/
+├── backend/
+│   ├── main.py              # FastAPI entry
+│   ├── requirements.txt
+│   └── app/
+│       ├── api.py           # REST routes
+│       ├── schemas.py       # Pydantic models
+│       ├── antigravity/     # AI Agent
+│       │   ├── core.py
+│       │   └── tools.py
+│       └── services/        # Business logic
+│           ├── farm_card.py
+│           ├── vision.py
+│           └── voice.py
+├── frontend/
+│   ├── pubspec.yaml
+│   └── lib/
+│       ├── main.dart
+│       ├── models/
+│       ├── screens/
+│       ├── services/
+│       ├── utils/
+│       └── widgets/
+└── docs/
+    ├── architecture.md      # This file
+    └── process/
+        ├── roadmap.md
+        └── audit.md         # Pre-release audit
+```
