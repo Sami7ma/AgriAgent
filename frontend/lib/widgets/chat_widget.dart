@@ -126,7 +126,7 @@ class _ChatWidgetState extends State<ChatWidget> {
             children: [
               const Text("AgriAgent Chat", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: Colors.grey),
+                icon: const Icon(Icons.menu, color: Color(0xFF2E7D32)), // Hamburger menu
                 onSelected: (value) {
                   if (value == 'clear') _clearHistory();
                 },

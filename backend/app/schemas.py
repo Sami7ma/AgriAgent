@@ -19,6 +19,8 @@ class DiagnosisResponse(BaseModel):
 class AgentQueryRequest(BaseModel):
     query: str
     context_data: Optional[dict] = None
+    chat_history: List[dict] = [] # List of {"role": "user/bot", "text": "..."}
+    location_context: Optional[dict] = None # {"city": "...", "lat": ...}
     language: str = "en"
 
 class AgentQueryResponse(BaseModel):

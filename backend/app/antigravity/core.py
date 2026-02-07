@@ -26,27 +26,31 @@ class AntigravityAgent:
         # Chat session could be persisted, but for now we create new per request or manage history
         # For simplicity in this API, we might not maintain long history yet.
     
-    async def reason_and_act(self, query: str, context: dict) -> dict:
+    async def reason_and_act(self, query: str, context: dict, history: list = [], location: dict = None) -> dict:
         """
-        Executes the agentic loop:
-        1. Sends query + context to Gemini.
-        2. Gemini may call tools.
-        3. We execute tools locally (Gemini SDK handles this automatically if using 'automatic_function_calling' 
-           OR we handle the function call response).
-           
-        For manual control/transparency (as "Antigravity"), let's use automatic function calling if available,
-        or handle the turn manually. 
-        Google SDK's `enable_automatic_function_calling` is great for this.
+        Executes the agentic loop with Memory and Context.
         """
         
-        # Enhance prompt with context
-        system_context = f"Context: User is a farmer. Current context: {context}. " \
-                         f"You are AgriAgent, a helpful assistant. Use tools if needed."
+        # 1. Build System Context
+        system_prompt = "You are AgriAgent, an expert agricultural AI assistant.\n"
         
-        full_prompt = f"{system_context}\n\nUser Question: {query}"
+        if location:
+            system_prompt += f"User Location: {location.get('city', 'Unknown')}, {location.get('country', '')} (Lat: {location.get('lat')}, Lon: {location.get('lon')}).\n"
+            system_prompt += "Use this location for weather and market queries.\n"
+            
+        system_prompt += f"Current Context: {context}.\n"
+        
+        # 2. Build Conversation History
+        history_str = ""
+        for msg in history[-10:]: # Keep last 10 turns to avoid token limits
+            role = "User" if msg.get("role") == "user" else "AgriAgent"
+            content = msg.get("text", "")
+            history_str += f"{role}: {content}\n"
+            
+        full_prompt = f"{system_prompt}\n\nConversation History:\n{history_str}\nUser: {query}\nAgriAgent:"
         
         try:
-            # We use chat for multi-turn tool interaction
+            # We use chat for multi-turn tool interaction (but here we effectively manually manage history for stateless API)
             chat = self.model.start_chat(enable_automatic_function_calling=True)
             response = chat.send_message(full_prompt)
             

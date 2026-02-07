@@ -1,8 +1,10 @@
+
 import 'package:flutter/material.dart';
 import '../models/farm_card.dart';
 
 class FarmCardWidget extends StatelessWidget {
   final FarmCard? data;
+  final Map<String, dynamic>? weatherData; // NEW: Real weather data
   final bool isLoading;
   final String? error;
   final VoidCallback? onRefresh;
@@ -10,6 +12,7 @@ class FarmCardWidget extends StatelessWidget {
   const FarmCardWidget({
     super.key,
     this.data,
+    this.weatherData,
     this.isLoading = false,
     this.error,
     this.onRefresh,
@@ -17,98 +20,101 @@ class FarmCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today,
-                        color: Theme.of(context).colorScheme.primary, size: 20),
-                    const SizedBox(width: 8),
-                    const Text("Daily Application",
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ],
-            ),
-            const Divider(height: 20),
-            if (isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 10),
-                child: Center(
-                    child: SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))),
-              )
-            else if (error != null)
-              GestureDetector(
-                onTap: onRefresh,
-                child: Text(error!, style: const TextStyle(color: Colors.red)),
-              )
-            else if (data == null)
-              GestureDetector(
-                onTap: onRefresh,
-                child: const Text("Tap to load daily insights",
-                    style: TextStyle(color: Colors.grey)),
-              )
-            else
-              _buildContent(context, data!),
-          ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2E7D32),
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
         ),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.wb_sunny, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              const Text("Daily Insights", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Spacer(),
+              if (isLoading) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
+          if (error != null)
+             Text("Error: $error", style: TextStyle(color: Colors.red.shade100))
+          else 
+             _buildWeatherRow(),
+
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+               children: [
+                 const Icon(Icons.lightbulb_outline, color: Colors.yellow, size: 24),
+                 const SizedBox(width: 12),
+                 Expanded(
+                    child: Text(
+                      data?.topAction ?? "Loading recommendation...",
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                    ),
+                 )
+               ],
+            ),
+          )
+        ],
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, FarmCard card) {
-    return Column(
+  Widget _buildWeatherRow() {
+    // Use Real Weather if available, else Mock/Backend
+    final double temp = weatherData?['temp'] ?? 24.0;
+    final String condition = weatherData?['condition'] ?? data?.weatherSummary ?? "Calm";
+    final int humidity = weatherData?['humidity'] ?? 60;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildInfoRow(Icons.location_on, "${card.location} • ${card.date}"),
-        const SizedBox(height: 8),
-        _buildInfoRow(Icons.wb_sunny, card.weatherSummary),
-        const SizedBox(height: 8),
-        _buildInfoRow(Icons.attach_money, card.marketTrend),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.shade200),
-          ),
-          child: Row(
+        Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline, color: Colors.blue.shade700),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  "Recommendation: ${card.topAction}",
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.blue.shade900),
-                ),
-              ),
+                Text("${temp.toStringAsFixed(1)}°C", style: const TextStyle(fontSize: 42, color: Colors.white, fontWeight: FontWeight.bold)),
+                Text(condition, style: const TextStyle(color: Colors.white70, fontSize: 16)),
             ],
-          ),
         ),
+        Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+                _buildMetDetail(Icons.water_drop, "$humidity%", "Humidity"),
+                const SizedBox(height: 8),
+                _buildMetDetail(Icons.air, "${weatherData?['wind'] ?? 5} km/h", "Wind"),
+            ],
+        )
       ],
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
+  Widget _buildMetDetail(IconData icon, String value, String label) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.grey.shade600),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Text(text, style: TextStyle(color: Colors.grey.shade800))),
+        Icon(icon, color: Colors.white70, size: 16),
+        const SizedBox(width: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 12)),
       ],
     );
   }

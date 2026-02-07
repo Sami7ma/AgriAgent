@@ -53,7 +53,12 @@ from app.services.farm_card import FarmCardService, FarmCard
 @router.post("/agent/query", response_model=AgentQueryResponse)
 async def agent_query(request: AgentQueryRequest):
 
-    result = await agent.reason_and_act(request.query, request.context_data)
+    result = await agent.reason_and_act(
+        query=request.query, 
+        context=request.context_data,
+        history=request.chat_history,
+        location=request.location_context
+    )
     return {
         "response_text": result["response"],
         "suggested_actions": result["actions"]
