@@ -27,7 +27,6 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.38.9'
-          channel: stable
           cache: true
 
       # 4️⃣ Hard verify Flutter + Dart versions
