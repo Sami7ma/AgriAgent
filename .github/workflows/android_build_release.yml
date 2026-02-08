@@ -23,7 +23,14 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          # Pin the Flutter SDK to a specific release to avoid CI channel detection issues
+          flutter-version: '3.38.5'
+          cache: true
+
+      - name: Debug: flutter --version
+        run: |
+          flutter --version
+          flutter doctor -v
 
       - name: Install dependencies
         working-directory: frontend
