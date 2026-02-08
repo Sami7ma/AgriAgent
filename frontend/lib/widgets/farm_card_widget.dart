@@ -81,7 +81,10 @@ class FarmCardWidget extends StatelessWidget {
                  const SizedBox(width: 12),
                  Expanded(
                     child: Text(
-                      data?.topAction ?? "Loading recommendation...",
+                      // Show a clear fallback when there's no card data
+                      (data != null && (data!.topAction).isNotEmpty)
+                          ? data!.topAction
+                          : (isLoading ? "Loading recommendation..." : "No recommendation available. Pull to refresh."),
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
                     ),
                  )

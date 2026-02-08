@@ -8,8 +8,9 @@ class AppConstants {
   // - Physical Device (same WiFi): Use your computer's local IP
   // - Production: https://your-api-domain.com/api/v1
   //
-  // Current: Local Network IP (for physical device testing)
-  static const String baseUrl = "http://172.20.10.8:8000/api/v1";
+  // For Android emulators use 10.0.2.2 to reach the host machine localhost.
+  // If using a physical device, replace with your PC's LAN IP (e.g. 192.168.x.x).
+  static const String baseUrl = "http://10.0.2.2:8000/api/v1";
   
   // ============================================
   // TIMEOUTS

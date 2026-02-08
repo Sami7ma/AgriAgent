@@ -192,3 +192,32 @@ AgriAgent/
         ├── roadmap.md
         └── audit.md         # Pre-release audit
 ```
+
+---
+
+## Release & Build Notes (APK)
+
+- Build environment: Flutter SDK (matching project version), Android SDK (platform 33+), JDK 11+.
+- Emulator vs physical device:
+    - For Android Emulator use `10.0.2.2` to reach host `localhost` services.
+    - For physical devices use your machine LAN IP (set `AppConstants.baseUrl` accordingly).
+
+### Producing a Release APK (local)
+
+1. From the `frontend` folder run:
+
+```bash
+flutter build apk --release
+```
+
+2. Output APK is at `frontend/build/app/outputs/flutter-apk/app-release.apk`.
+
+3. To share via GitHub Releases, either upload the APK manually to a release, or create a CI workflow that builds and attaches the APK automatically (we add a sample GitHub Actions workflow in the repo).
+
+### CI Release (recommended)
+
+- A GitHub Actions workflow can build the release APK on push or tag, then create a GitHub Release and upload the APK as an asset. The sample workflow added to this repository uses the repo's `GITHUB_TOKEN` and runs on pushes to `main` or when a tag is created.
+
+---
+
+If you want, I can build the APK here and add it to the repository temporarily, but it's better to use the CI workflow to avoid committing large binaries into git.

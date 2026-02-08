@@ -57,3 +57,54 @@ This document outlines the step-by-step plan to upgrade AgriAgent from a prototy
 - [ ] **Error Handling**: Better "Offline" screens.
 - [ ] **App Icon & Splash**: Finalize branding (Icon done).
 - [ ] **Release Build**: Generate signed APK/AppBundle.
+
+---
+
+## Release & Distribution (detailed steps)
+
+### 1) Local APK build (quick MVP)
+
+1. Ensure Flutter is installed and `flutter doctor` is clean.
+2. From project root run:
+
+```bash
+cd frontend
+flutter clean
+flutter pub get
+flutter build apk --release
+```
+
+3. Result: `frontend/build/app/outputs/flutter-apk/app-release.apk` — shareable.
+
+Notes: Use `--target-platform android-arm64` to optimize for modern devices.
+
+### 2) Automated CI build + GitHub Release (recommended)
+
+We add a GitHub Actions workflow `.github/workflows/android_build_release.yml` that:
+
+- Runs on pushes to `main` and on tag creation.
+- Sets up Flutter (matching channel & version), checks out the repo, runs `flutter pub get` and `flutter build apk --release`.
+- Uses `actions/create-release` and `actions/upload-release-asset` to create or update a GitHub Release and upload the generated APK.
+
+To enable automatic release-on-tag:
+
+1. Push these changes to `main`.
+2. Tag a release locally and push the tag:
+
+```bash
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
+3. The workflow will run, build the APK, and attach it to a GitHub Release named `v1.0.0`.
+
+### 3) Signing the APK
+
+- For production, create a Keystore and add signing configs to `android/key.properties` and `android/app/build.gradle`.
+- Keep the keystore and passwords out of git; use GitHub Secrets for CI signing.
+
+### 4) Post-release checklist
+
+- Test the APK on several devices (arm64 emulator, x86 emulator, physical device).
+- Verify network calls (backend reachable via correct IP/10.0.2.2), ensure any environment variables or API keys are set in backend `./backend/.env`.
+- Update `docs/architecture.md` release notes with the release tag and changelog.

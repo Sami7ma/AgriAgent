@@ -46,10 +46,10 @@ class FarmCardService:
                  display_location = f"{location} ({lat:.2f}, {lon:.2f})"
         
         # 1. Get Weather (using the resolved location name now)
-        weather = ToolRegistry.get_weather(display_location)
+        weather = await ToolRegistry.get_weather(display_location, lat=lat, lon=lon)
         
         # 2. Get Market
-        market = ToolRegistry.get_market_price(crop, display_location)
+        market = await ToolRegistry.get_market_price(crop, display_location, lat=lat, lon=lon)
         
         # 3. Synthesize "Intelligence" (Simplified for prototype)
         # In a real system, we might use Gemini to write the summaries based on raw data.
