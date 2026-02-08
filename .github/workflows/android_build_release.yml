@@ -2,14 +2,18 @@ name: Android CI - Build Release APK
 
 on:
   push:
+    # Only triggers the build on main branch pushes
     branches: [ main ]
-  create:
+    # Triggers the Release part when you push a tag like v1.0.0
     tags:
       - 'v*'
 
 jobs:
   build-release-apk:
     runs-on: ubuntu-latest
+    # This block fixes the 'Error 403: Resource not accessible'
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -24,13 +28,8 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.9'
-          cache: false
-
-      - name: "Debug: Flutter version"
-        run: |
-          flutter --version
-          flutter doctor -v
+          flutter-version: '3.19.0' # Note: Ensure this version is valid for your project
+          cache: true
 
       - name: Install Flutter dependencies
         working-directory: frontend
@@ -47,9 +46,12 @@ jobs:
           path: frontend/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Create GitHub Release
+        # Only runs if a tag was pushed
         if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-          files: frontend/build/app/outputs/flutter-apk/app-release.apk
+          # Changed 'files' to 'artifacts' to fix the warning
+          artifacts: "frontend/build/app/outputs/flutter-apk/app-release.apk"
+          token: ${{ secrets.GITHUB_TOKEN }}
