@@ -11,10 +11,16 @@ vision_service = VisionService()
 
 @router.post("/analyze/diagnose", response_model=DiagnosisResponse)
 async def diagnose_crop(file: UploadFile = File(...)):
-    content = await file.read()
-    result = await vision_service.analyze_crop(content, file.content_type)
+    print("DEBUG: file received")
+    print("DEBUG: filename =", file.filename)
+    print("DEBUG: content_type =", file.content_type)
 
-    # 🔧 FIX: normalize confidence to 0–1
+    content = await file.read()
+    print("DEBUG: file size =", len(content))
+
+    result = await vision_service.analyze_crop(content, file.content_type)
+    print("DEBUG: vision result =", result)
+
     confidence = result.get("confidence")
     if confidence is not None:
         try:
@@ -23,7 +29,7 @@ async def diagnose_crop(file: UploadFile = File(...)):
                 confidence = confidence / 100.0
             result["confidence"] = confidence
         except Exception:
-            result["confidence"] = 0.5  # safe fallback
+            result["confidence"] = 0.5
 
     return result
 
