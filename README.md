@@ -43,13 +43,13 @@ cd backend
 pip install -r requirements.txt
 export GEMINI_API_KEY="your_google_api_key"
 uvicorn main:app --reload
-
+```
 **Frontend:**
 ```bash
 cd frontend
 flutter pub get
 flutter run
-
+```
 ### 📝 Requirements
 
 - **OS:** Android 7.0 (Nougat) or higher  
