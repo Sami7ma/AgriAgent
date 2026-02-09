@@ -1,4 +1,4 @@
-# <p align="center"><img src="PASTE_LINK_TO_YOUR_UPLOADED_IMAGE_HERE" width="120" alt="AgriAgent Logo"></p>  AgriAgent: Your Google-Powered Farm Manager
+# <p align="center"><img src="nano.jpg" width="120" alt="AgriAgent Logo"></p>  AgriAgent: Your Google-Powered Farm Manager
 
 **AgriAgent** is a sophisticated, agentic agricultural assistant designed to empower farmers with the best of Google's AI. Powered by **Gemini 3 Flash**, it bridges the gap between complex data and boots-on-the-ground farming. Whether you're diagnosing a crop disease via video or checking the latest market prices via voice, AgriAgent is your digital partner in the field.
 
