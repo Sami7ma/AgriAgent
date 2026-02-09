@@ -12,7 +12,20 @@ vision_service = VisionService()
 @router.post("/analyze/diagnose", response_model=DiagnosisResponse)
 async def diagnose_crop(file: UploadFile = File(...)):
     content = await file.read()
-    return await vision_service.analyze_crop(content, file.content_type)
+    result = await vision_service.analyze_crop(content, file.content_type)
+
+    # 🔧 FIX: normalize confidence to 0–1
+    confidence = result.get("confidence")
+    if confidence is not None:
+        try:
+            confidence = float(confidence)
+            if confidence > 1:
+                confidence = confidence / 100.0
+            result["confidence"] = confidence
+        except Exception:
+            result["confidence"] = 0.5  # safe fallback
+
+    return result
 
 
 from app.services.voice import VoiceService
