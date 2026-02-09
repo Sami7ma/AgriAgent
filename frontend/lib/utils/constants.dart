@@ -10,7 +10,8 @@ class AppConstants {
   //
   // For Android emulators use 10.0.2.2 to reach the host machine localhost.
   // If using a physical device, replace with your PC's LAN IP (e.g. 192.168.x.x).
-  static const String baseUrl = "http://10.0.2.2:8000/api/v1";
+  // Finally deploy to Render and use the URL provided by Render.
+  static const String baseUrl = "https://agriagent-api.onrender.com/api/v1";
   
   // ============================================
   // TIMEOUTS
