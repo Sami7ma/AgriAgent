@@ -24,7 +24,7 @@ async def diagnose_crop(file: UploadFile = File(...)):
     confidence = result.get("confidence")
     if confidence is not None:
         try:
-            confidence = float(confidence)
+            confidence = vision_result.get("confidence", 0.0)
             if confidence > 1:
                 confidence = confidence / 100.0
             result["confidence"] = confidence
