@@ -1,25 +1,31 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/chat_message.dart';
 
 /// Service for managing chat session persistence
-/// Uses SharedPreferences for local device storage
+/// Uses FlutterSecureStorage for sensitive chat data
 class ChatService {
   static const String _sessionsKey = 'chat_sessions_list';
   static const String _sessionPrefix = 'chat_session_';
   static const int _maxSessions = 100; // Prevent unbounded growth
+  
+  // Use secure storage for sensitive data
+  static const _secureStorage = FlutterSecureStorage();
 
   /// Saves a chat session (list of messages)
-  /// Messages are stored persistently until explicitly deleted
+  /// Messages are stored securely using platform-specific encryption
   Future<void> saveSession(String sessionId, List<ChatMessage> messages) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      // 1. Save messages as JSON list
+      // Save sensitive chat data using secure storage
       final List<String> encodedMessages = messages.map((msg) => jsonEncode(msg.toMap())).toList();
-      await prefs.setStringList('$_sessionPrefix$sessionId', encodedMessages);
+      final messagesJson = jsonEncode(encodedMessages);
+      await _secureStorage.write(
+        key: '$_sessionPrefix$sessionId',
+        value: messagesJson,
+      );
 
-      // 2. Update session metadata list
+      // Update session metadata in regular storage (non-sensitive)
       await _updateSessionList(sessionId, messages.isNotEmpty ? messages.last.text : "New Chat");
       
     } catch (e) {
@@ -32,13 +38,13 @@ class ChatService {
   /// Returns empty list if session doesn't exist
   Future<List<ChatMessage>> loadSession(String sessionId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String>? encodedMessages = prefs.getStringList('$_sessionPrefix$sessionId');
+      final messagesJson = await _secureStorage.read(key: '$_sessionPrefix$sessionId');
 
-      if (encodedMessages == null || encodedMessages.isEmpty) {
+      if (messagesJson == null || messagesJson.isEmpty) {
         return [];
       }
 
+      final List<dynamic> encodedMessages = jsonDecode(messagesJson);
       return encodedMessages.map((str) {
         try {
           return ChatMessage.fromMap(jsonDecode(str));
@@ -109,9 +115,9 @@ class ChatService {
         final toRemove = sessions.sublist(_maxSessions);
         sessions = sessions.sublist(0, _maxSessions);
         
-        // Clean up old session data
+        // Clean up old session data from secure storage
         for (var old in toRemove) {
-          await prefs.remove('$_sessionPrefix${old['id']}');
+          await _secureStorage.delete(key: '$_sessionPrefix${old['id']}');
         }
       }
 
@@ -125,12 +131,11 @@ class ChatService {
   /// Deletes a session and its messages
   Future<void> deleteSession(String sessionId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      // Remove the actual messages
-      await prefs.remove('$_sessionPrefix$sessionId');
+      // Remove the actual messages from secure storage
+      await _secureStorage.delete(key: '$_sessionPrefix$sessionId');
       
       // Remove from session list
+      final prefs = await SharedPreferences.getInstance();
       List<Map<String, String>> sessions = await getSessions();
       sessions.removeWhere((s) => s['id'] == sessionId);
       await prefs.setString(_sessionsKey, jsonEncode(sessions));
@@ -146,9 +151,9 @@ class ChatService {
       final prefs = await SharedPreferences.getInstance();
       final sessions = await getSessions();
       
-      // Remove all session data
+      // Remove all session data from secure storage
       for (var session in sessions) {
-        await prefs.remove('$_sessionPrefix${session['id']}');
+        await _secureStorage.delete(key: '$_sessionPrefix${session['id']}');
       }
       
       // Clear the session list
@@ -162,8 +167,8 @@ class ChatService {
   /// Check if a session exists
   Future<bool> sessionExists(String sessionId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.containsKey('$_sessionPrefix$sessionId');
+      final value = await _secureStorage.read(key: '$_sessionPrefix$sessionId');
+      return value != null;
     } catch (e) {
       return false;
     }

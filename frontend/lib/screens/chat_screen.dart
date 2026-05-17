@@ -93,6 +93,35 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    // Check message length and warn if truncation will happen
+    const maxLength = 2000;
+    if (text.length > maxLength) {
+      if (mounted) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Message Too Long"),
+            content: Text(
+              "Your message is ${text.length} characters.\n"
+              "It will be truncated to $maxLength characters.\n\n"
+              "Do you want to continue?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Edit"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Send Anyway"),
+              ),
+            ],
+          ),
+        );
+        if (proceed != true) return;
+      }
+    }
+
     setState(() {
       _messages.add(ChatMessage(role: "user", text: text));
       _isSending = true;
@@ -127,8 +156,12 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _messages.add(ChatMessage(role: "error", text: "Connection error. Please try again."));
+          _messages.add(ChatMessage(role: "error", text: "Error: ${e.toString()}"));
         });
+        _scrollToBottom();
+        
+        // Show retry dialog
+        _showRetryDialog(e.toString());
       }
     } finally {
       if (mounted) {
@@ -137,6 +170,29 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     }
+  }
+  
+  void _showRetryDialog(String errorMessage) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Message Failed"),
+        content: Text(errorMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _sendMessage();
+            },
+            child: const Text("Retry"),
+          ),
+        ],
+      ),
+    );
   }
   
   void _scrollToBottom() {

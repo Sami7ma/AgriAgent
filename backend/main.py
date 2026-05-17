@@ -4,11 +4,21 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 import os
 import time
+import logging
 from collections import defaultdict
 
 load_dotenv()
 
 from app.api import router
+
+# ============================================
+# LOGGING CONFIGURATION
+# ============================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # ============================================
 # APP CONFIGURATION
@@ -30,7 +40,9 @@ if ENVIRONMENT == "production":
     # Production: Only allow specified origins
     allowed_origins = [origin.strip() for origin in ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
     if not allowed_origins:
-        allowed_origins = []  # No CORS if not configured in production
+        logger.error("CRITICAL: ALLOWED_ORIGINS must be set in production!")
+        raise ValueError("ALLOWED_ORIGINS environment variable must be configured in production")
+    logger.info(f"Production CORS allowed origins: {allowed_origins}")
 else:
     # Development: Allow common dev origins
     allowed_origins = [
@@ -77,6 +89,7 @@ async def rate_limit_middleware(request: Request, call_next):
     
     # Check limit
     if len(request_counts[client_ip]) >= RATE_LIMIT_REQUESTS:
+        logger.warning(f"Rate limit exceeded for IP: {client_ip}")
         return JSONResponse(
             status_code=429,
             content={"detail": "Too many requests. Please slow down."}
@@ -93,13 +106,17 @@ async def rate_limit_middleware(request: Request, call_next):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     # Log the error (in production, send to monitoring service)
-    import logging
-    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    logger.error(f"Unhandled exception in {request.url.path}: {exc}", exc_info=True)
     
-    # Return generic error (don't expose internal details)
+    # Return generic error (don't expose internal details in production)
+    if ENVIRONMENT == "production":
+        detail = "An internal error occurred. Please try again later."
+    else:
+        detail = str(exc)
+    
     return JSONResponse(
         status_code=500,
-        content={"detail": "An internal error occurred. Please try again later."}
+        content={"detail": detail}
     )
 
 # ============================================

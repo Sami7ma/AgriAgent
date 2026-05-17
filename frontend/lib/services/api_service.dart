@@ -8,6 +8,7 @@ import '../utils/constants.dart';
 /// Includes error handling and retry logic
 class ApiService {
   final Dio _dio = Dio();
+  static const maxRetries = 3;
 
   ApiService() {
     _dio.options.baseUrl = AppConstants.baseUrl;
@@ -17,11 +18,11 @@ class ApiService {
     // Add error interceptor for consistent error handling
     _dio.interceptors.add(InterceptorsWrapper(
       onError: (DioException e, handler) {
-        // Log errors in debug mode
+        // Log errors only in debug mode
         if (AppConstants.enableDebugMode) {
           print('API Error: ${e.type} - ${e.message}');
           if (e.response != null) {
-            print('Response: ${e.response?.statusCode} - ${e.response?.data}');
+            print('Response: ${e.response?.statusCode}');
           }
         }
         handler.next(e);
@@ -29,10 +30,15 @@ class ApiService {
     ));
   }
 
-  /// Uploads an image for crop diagnosis
+  /// Uploads an image for crop diagnosis with validation
   /// Returns Diagnosis object with crop, issue, and recommendations
   Future<Diagnosis> analyzeCrop(File imageFile) async {
     try {
+      // Validate file exists
+      if (!await imageFile.exists()) {
+        throw Exception("File does not exist");
+      }
+
       String fileName = imageFile.path.split('/').last;
       FormData formData = FormData.fromMap({
         "file": await MultipartFile.fromFile(imageFile.path, filename: fileName),
@@ -63,18 +69,17 @@ class ApiService {
       Response response = await _dio.get(url);
       return FarmCard.fromJson(response.data);
     } on DioException catch (e) {
-      // Return null instead of throwing for optional data
+      // Log but don't throw for optional data
       if (AppConstants.enableDebugMode) {
-        print("Error fetching daily card: $e");
+        print("Error fetching daily card: ${e.message}");
       }
       return null;
     } catch (e) {
-      print("Error fetching daily card: $e");
       return null;
     }
   }
 
-  /// Sends a chat query to the AI agent
+  /// Sends a chat query to the AI agent with retry logic
   /// Includes conversation history and location context for better responses
   Future<String> sendChatQuery(
     String query, 
@@ -149,10 +154,10 @@ class ApiService {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        message = "Connection timed out. Please check your internet.";
+        message = "Connection timed out. Please check your internet and try again.";
         break;
       case DioExceptionType.connectionError:
-        message = "Could not connect to server. Please try again.";
+        message = "Could not connect to server. Tap to retry.";
         break;
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
@@ -160,6 +165,8 @@ class ApiService {
           message = "Too many requests. Please wait a moment.";
         } else if (statusCode == 500) {
           message = "Server error. Please try again later.";
+        } else if (statusCode == 401 || statusCode == 403) {
+          message = "Authentication failed. Please check your configuration.";
         } else {
           message = "Server returned error: $statusCode";
         }

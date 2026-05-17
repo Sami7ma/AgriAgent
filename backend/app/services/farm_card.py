@@ -2,13 +2,28 @@ from datetime import datetime
 from app.antigravity.tools import ToolRegistry
 from app.schemas import FarmCard
 import random
-
 import json
 import urllib.request
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FarmCardService:
     @staticmethod
     def _get_city_name(lat: float, lon: float) -> str:
+        # Validate coordinates before API call
+        if lat is None or lon is None or not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
+            logger.warning(f"Invalid coordinate types: lat={type(lat)}, lon={type(lon)}")
+            return "Unknown Location"
+        
+        if not (-90 <= lat <= 90):
+            logger.warning(f"Latitude out of range: {lat}")
+            return "Invalid coordinates"
+        
+        if not (-180 <= lon <= 180):
+            logger.warning(f"Longitude out of range: {lon}")
+            return "Invalid coordinates"
+        
         try:
             url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=10"
             req = urllib.request.Request(url, headers={
@@ -28,10 +43,12 @@ class FarmCardService:
                 parts = [p for p in [area, city, country] if p]
                 
                 if parts:
-                    return ", ".join(parts)
+                    location_name = ", ".join(parts)
+                    logger.debug(f"Geocoded location: {location_name}")
+                    return location_name
                 return "Unknown Location"
         except Exception as e:
-            print(f"Geocoding error: {e}")
+            logger.warning(f"Geocoding error for ({lat}, {lon}): {e}")
             return f"Lat: {lat:.2f}, Lon: {lon:.2f}"
 
     @staticmethod

@@ -11,7 +11,10 @@ class AppConstants {
   // For Android emulators use 10.0.2.2 to reach the host machine localhost.
   // If using a physical device, replace with your PC's LAN IP (e.g. 192.168.x.x).
   // Finally deploy to Render and use the URL provided by Render.
-  static const String baseUrl = "https://agriagent-api.onrender.com/api/v1";
+  static const String baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'https://agriagent-api.onrender.com/api/v1',
+  );
   
   // ============================================
   // TIMEOUTS
@@ -23,11 +26,12 @@ class AppConstants {
   // FEATURE FLAGS
   // ============================================
   static const bool enableVoiceInput = false;  // Voice UI not complete yet
-  static const bool enableDebugMode = true;    // Set to false in production
+  static const bool enableDebugMode = false;   // SECURITY: Always false in production
   
   // ============================================
   // UI CONSTANTS
   // ============================================
   static const int maxChatHistoryDisplay = 50;
   static const int maxQueryLength = 2000;
+  static const int minButtonSize = 48;  // Accessibility: minimum touch target size
 }

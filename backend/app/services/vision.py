@@ -2,15 +2,18 @@ import os
 import google.generativeai as genai
 from app.schemas import DiagnosisResponse
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Configure Gemini
 # Ensure GEMINI_API_KEY is set in environment or .env
 if "GEMINI_API_KEY" in os.environ:
     key = os.environ["GEMINI_API_KEY"]
-    print(f"DEBUG: Found GEMINI_API_KEY. Length: {len(key)}, Start: {key[:4]}...")
+    logger.info(f"Gemini API key configured (length: {len(key)})")
     genai.configure(api_key=key)
 else:
-    print("DEBUG: GEMINI_API_KEY not found in environment variables.")
+    logger.warning("GEMINI_API_KEY not found in environment variables")
 
 class VisionService:
     def __init__(self):
@@ -48,6 +51,7 @@ class VisionService:
         # Note: 'gemini-1.5-flash' supports video.
         
         try:
+            logger.debug(f"Analyzing crop with Gemini ({len(file_content)} bytes, {mime_type})")
             response = self.model.generate_content([
                 prompt,
                 {
@@ -60,16 +64,17 @@ class VisionService:
             text = response.text.replace("```json", "").replace("```", "").strip()
             data = json.loads(text)
             
+            logger.info(f"Analysis successful: {data.get('crop', 'Unknown')}")
             return DiagnosisResponse(**data)
             
         except Exception as e:
             # Fallback for error handling
-            print(f"Error calling Gemini: {e}")
+            logger.error(f"Error calling Gemini Vision API: {e}", exc_info=True)
             return DiagnosisResponse(
                 crop="Unknown",
-                issue=f"Analysis failed: {str(e)}",
+                issue=f"Analysis failed: Please try again or check the image quality.",
                 confidence=0.0,
                 affected_area="N/A",
                 severity="unknown",
-                actions=["Retry analysis"]
+                actions=["Retry analysis with a clearer image"]
             )

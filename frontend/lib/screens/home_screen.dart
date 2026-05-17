@@ -137,6 +137,32 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final XFile? file = await _picker.pickImage(source: source);
       if (file != null) {
+        // Validate file size and type before uploading
+        final fileSize = File(file.path).lengthSync();
+        const maxFileSize = 100 * 1024 * 1024; // 100MB
+        
+        if (fileSize > maxFileSize) {
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (BuildContext ctx) => AlertDialog(
+                title: const Text("File Too Large"),
+                content: Text(
+                  "File is ${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB.\n"
+                  "Maximum allowed size is 100MB.",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text("OK"),
+                  ),
+                ],
+              ),
+            );
+          }
+          return;
+        }
+        
         setState(() {
           _mediaFile = File(file.path);
           _diagnosis = null;
@@ -154,6 +180,29 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _analyzeImage() async {
     if (_mediaFile == null) return;
 
+    // Show loading dialog
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext ctx) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text("Analyzing your crop..."),
+              const SizedBox(height: 8),
+              Text(
+                "This may take a moment",
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     setState(() {
       _isAnalyzing = true;
     });
@@ -164,11 +213,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _diagnosis = result;
         _isAnalyzing = false;
       });
+      if (mounted) Navigator.pop(context); // Close loading dialog
     } catch (e) {
       setState(() {
         _analysisError = "Unable to analyze crop. Please check connection.";
         _isAnalyzing = false;
       });
+      if (mounted) Navigator.pop(context); // Close loading dialog
     }
   }
 
