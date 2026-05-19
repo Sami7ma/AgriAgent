@@ -7,6 +7,9 @@ import '../models/chat_message.dart';
 import '../models/farm_card.dart';
 import '../services/api_service.dart';
 import '../services/chat_service.dart';
+import '../services/voice_service.dart';
+import '../widgets/voice_message_widget.dart';
+import '../utils/constants.dart';
 
 class ChatScreen extends StatefulWidget {
   final Diagnosis? initialDiagnosis;
@@ -29,16 +32,22 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  // ... (existing state)
+  // Existing state
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ChatService _chatService = ChatService();
-  final ApiService _apiService = ApiService(); // Restored
+  final ApiService _apiService = ApiService();
   
-  List<ChatMessage> _messages = []; // Restored
-  bool _isSending = false; // Restored
+  List<ChatMessage> _messages = [];
+  bool _isSending = false;
   
-  String _sessionId = ""; // Manage Session ID locally
+  String _sessionId = "";
+  
+  // Voice input state
+  final VoiceService _voiceService = VoiceService();
+  bool _isVoiceRecording = false;
+  String _voiceTranscribedText = "";
+  bool _showVoiceWidget = false;
 
   @override
   void initState() {
@@ -51,6 +60,26 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     
     _initChat();
+    _initVoiceService();
+  }
+  
+  /// Initialize voice service
+  Future<void> _initVoiceService() async {
+    if (AppConstants.enableVoiceInput) {
+      try {
+        await _voiceService.initialize();
+      } catch (e) {
+        print('Failed to initialize voice service: $e');
+      }
+    }
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    _voiceService.dispose();
+    super.dispose();
   }
   
   Future<void> _initChat() async {
@@ -203,6 +232,78 @@ class _ChatScreenState extends State<ChatScreen> {
       });
   }
 
+  /// Start voice recording
+  Future<void> _recordVoiceMessage() async {
+    if (!AppConstants.enableVoiceInput) return;
+
+    try {
+      if (_isVoiceRecording) {
+        // Stop recording
+        await _voiceService.stopListening();
+        if (mounted) {
+          setState(() {
+            _isVoiceRecording = false;
+          });
+        }
+      } else {
+        // Start recording
+        setState(() {
+          _showVoiceWidget = true;
+          _isVoiceRecording = true;
+          _voiceTranscribedText = "";
+        });
+
+        await _voiceService.startListening(
+          onResult: (recognizedWords) {
+            if (mounted) {
+              setState(() {
+                _voiceTranscribedText = recognizedWords;
+              });
+            }
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isVoiceRecording = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Voice error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Send voice message
+  Future<void> _sendVoiceMessage() async {
+    if (_voiceTranscribedText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No voice message to send')),
+      );
+      return;
+    }
+
+    _controller.text = _voiceTranscribedText;
+    _cancelVoiceMessage();
+    await _sendMessage();
+  }
+
+  /// Cancel voice message
+  void _cancelVoiceMessage() {
+    _voiceService.cancelListening();
+    if (mounted) {
+      setState(() {
+        _showVoiceWidget = false;
+        _isVoiceRecording = false;
+        _voiceTranscribedText = "";
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -236,6 +337,14 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
+          // Voice message widget
+          if (_showVoiceWidget && AppConstants.enableVoiceInput)
+            VoiceMessageWidget(
+              isRecording: _isVoiceRecording,
+              transcribedText: _voiceTranscribedText,
+              onCancel: _cancelVoiceMessage,
+              onSend: _sendVoiceMessage,
+            ),
           if (_isSending)
              const LinearProgressIndicator(color: Color(0xFF2E7D32), backgroundColor: Color(0xFFE8F5E9)),
           _buildInputArea(), // Keeping existing input logic
@@ -316,11 +425,24 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           const SizedBox(width: 12),
+          // Microphone button (voice input)
+          if (AppConstants.enableVoiceInput)
+            FloatingActionButton.small(
+              onPressed: _recordVoiceMessage,
+              backgroundColor: _isVoiceRecording ? Colors.red : const Color(0xFF4CAF50),
+              foregroundColor: Colors.white,
+              elevation: 2,
+              tooltip: _isVoiceRecording ? 'Stop recording' : 'Record voice message',
+              child: Icon(_isVoiceRecording ? Icons.stop : Icons.mic),
+            ),
+          const SizedBox(width: 8),
+          // Send button
           FloatingActionButton.small(
             onPressed: _sendMessage,
             backgroundColor: const Color(0xFF2E7D32),
             foregroundColor: Colors.white,
             elevation: 2,
+            tooltip: 'Send message',
             child: const Icon(Icons.send),
           ),
         ],

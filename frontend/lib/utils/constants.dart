@@ -25,7 +25,7 @@ class AppConstants {
   // ============================================
   // FEATURE FLAGS
   // ============================================
-  static const bool enableVoiceInput = false;  // Voice UI not complete yet
+  static const bool enableVoiceInput = true;  // Voice Input UI - ENABLED in Phase 2
   static const bool enableDebugMode = false;   // SECURITY: Always false in production
   
   // ============================================
